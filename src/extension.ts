@@ -4,12 +4,20 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { resolveBinary } from "./binary";
 import { LetsgoLanguageClient } from "./client";
+import {
+  MANIFEST_SELECTOR,
+  MANIFEST_VIEW_TYPE,
+  ManifestEditorProvider,
+  ManifestLensProvider,
+  verifyRelease,
+} from "./manifestViewer";
+import { tagNextVersion } from "./tagCommand";
 import { findModules } from "./modules";
 import { parsePlan, type PlanResult } from "./plan";
 import { buildModuleTree, errorNode, type TreeNode } from "./planTree";
 import { summarize } from "./statusBar";
 import { isPlanAllowed } from "./trust";
-import { PLAN_JSON, isAvailable, outdatedMessage, probeVersion, unavailable } from "./version";
+import { PLAN_JSON, TAG_VERIFY, isAvailable, outdatedMessage, probeVersion, unavailable } from "./version";
 
 function fileExists(candidate: string): boolean {
   try {
@@ -161,6 +169,59 @@ export function activate(context: vscode.ExtensionContext): void {
   const restartLanguageServer = (): void => {
     void languageClient.restart();
   };
+
+  // Tag and Verify need a letsgo with --json on tag and verify; an unknown
+  // version is assumed to have it, the same as everywhere else.
+  const usable = async (): Promise<string | undefined> => {
+    const binary = configuredBinary();
+    if (!binary) {
+      void vscode.window.showWarningMessage("letsgo was not found; install it or set letsgo.path.");
+      return undefined;
+    }
+    const version = await probeVersion(binary);
+    if (version !== undefined && !isAvailable(TAG_VERIFY, version)) {
+      void vscode.window.showWarningMessage(outdatedMessage(version, unavailable(version)));
+      return undefined;
+    }
+    return binary;
+  };
+
+  const pickModuleDir = async (): Promise<string | undefined> => {
+    const folders = vscode.workspace.workspaceFolders ?? [];
+    const modules = findModules(
+      folders.map((f) => ({ name: f.name, fsPath: f.uri.fsPath })),
+      hasLetsgoMod,
+    );
+    if (modules.length <= 1) {
+      return modules[0]?.dir;
+    }
+    return (await vscode.window.showQuickPick(modules.map((m) => ({ label: m.label, dir: m.dir }))))?.dir;
+  };
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("letsgo.tag", async () => {
+      if (!isPlanAllowed(vscode.workspace.isTrusted)) {
+        void vscode.window.showWarningMessage("letsgo tag runs git and go; trust this workspace first.");
+        return;
+      }
+      const binary = await usable();
+      const dir = binary ? await pickModuleDir() : undefined;
+      if (binary && dir) {
+        await tagNextVersion(binary, dir, outputChannel);
+        doRefresh();
+      }
+    }),
+    vscode.commands.registerCommand("letsgo.verify", async (tag?: string, dir?: string) => {
+      const binary = await usable();
+      const cwd = dir ?? (await pickModuleDir());
+      const ref = tag ?? (await vscode.window.showInputBox({ prompt: "Tag to verify, e.g. v1.2.0" }));
+      if (binary && cwd && ref) {
+        await verifyRelease(binary, ref, cwd, vscode.workspace.isTrusted);
+      }
+    }),
+    vscode.window.registerCustomEditorProvider(MANIFEST_VIEW_TYPE, new ManifestEditorProvider(configuredBinary)),
+    vscode.languages.registerCodeLensProvider(MANIFEST_SELECTOR, new ManifestLensProvider()),
+  );
 
   const doRefresh = (): void => {
     void refresh(provider, statusBarItem, outputChannel);

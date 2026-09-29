@@ -5,8 +5,8 @@ Everything it knows comes from the `letsgo` binary on your machine — this
 extension carries no copy of its directive table, hook list or feature
 catalogue.
 
-> **Status: early.** The panel, status bar, language features and the Update
-> pin quick fix work.
+> **Status: early.** The panel, status bar, language features, Update pin,
+> Tag next version and the manifest viewer work.
 
 ## Requirements
 
@@ -44,6 +44,17 @@ plugins through it.
 line installs the plugin's latest release into the plugin store and rewrites
 the pin. Not offered in an untrusted workspace.
 
+**Tag next version**: `letsgo: Tag next version` asks letsgo for a proposal
+(`letsgo tag --json`), shows major/minor/patch with the proposed level first
+and its reason, then tags on your pick. It then offers to push the tag, which
+is what starts the release in CI. The extension never publishes a release
+itself. Not run in an untrusted workspace.
+
+**Manifests**: a `letsgo.json` gets a Verify lens (`letsgo verify <tag>`,
+output in the terminal panel), and "Reopen Editor With… → letsgo manifest"
+shows its artifacts, gates, features and plugins with a Verify button.
+`letsgo: Verify release` asks for a tag.
+
 **Older letsgo**: the extension checks `letsgo version`. Features a too-old
-letsgo lacks are switched off and named in a warning — the panel needs 0.29.0,
+letsgo lacks are switched off and named in a warning — the panel, Tag and Verify need 0.29.0,
 language features 0.30.0, Update pin 0.31.0. A dev build is assumed current.

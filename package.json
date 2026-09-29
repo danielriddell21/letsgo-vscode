@@ -37,6 +37,14 @@
         "command": "letsgo.refresh",
         "title": "letsgo: Refresh",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "letsgo.tag",
+        "title": "letsgo: Tag next version"
+      },
+      {
+        "command": "letsgo.verify",
+        "title": "letsgo: Verify release"
       }
     ],
     "menus": {
@@ -89,6 +97,18 @@
         "language": "letsgo-mod",
         "scopeName": "source.letsgo-mod",
         "path": "./syntaxes/letsgo-mod.tmLanguage.json"
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "letsgo.manifest",
+        "displayName": "letsgo manifest",
+        "selector": [
+          {
+            "filenamePattern": "letsgo.json"
+          }
+        ],
+        "priority": "option"
       }
     ]
   },
