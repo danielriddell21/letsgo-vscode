@@ -2,6 +2,7 @@ name: ci
 
 on:
   push:
+    branches: [trunk]
   pull_request:
 
 permissions:
