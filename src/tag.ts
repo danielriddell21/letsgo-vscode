@@ -39,12 +39,13 @@ export interface LevelChoice {
 // this only lays them out, it does not weigh them.
 export function levelChoices(proposal: Proposal): LevelChoice[] {
   const reason = (proposal.signals ?? []).map((s) => `${s.source}: ${s.detail}`).join("; ");
+  const proposedNote = reason ? "proposed — " + reason : "proposed";
   const proposed = LEVELS.includes(proposal.level as never) ? proposal.level : undefined;
   return [...LEVELS]
     .sort((a, b) => Number(b === proposed) - Number(a === proposed))
     .map((level) => ({
       label: level,
-      description: level === proposed ? `proposed${reason ? ` — ${reason}` : ""}` : "",
+      description: level === proposed ? proposedNote : "",
       level,
     }));
 }
@@ -56,7 +57,7 @@ export function tagArgs(level: LevelChoice["level"]): string[] {
 // `letsgo tag --yes` reports "  tagged <ref>"; the ref carries the module's tag
 // prefix, which `tag --json` leaves out, so this is where the real name is.
 export function parseTaggedRef(stdout: string): string | undefined {
-  return /^\s*tagged (\S+)\s*$/m.exec(stdout)?.[1];
+  return /^[ \t]*tagged (\S+)/m.exec(stdout)?.[1];
 }
 
 export function pushCommand(tag: string): string {

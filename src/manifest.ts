@@ -14,7 +14,7 @@ export interface Manifest {
 export function parseManifest(text: string): Manifest {
   const data = JSON.parse(text) as Manifest;
   if (typeof data.project !== "string" || typeof data.version !== "string") {
-    throw new Error("not a letsgo manifest");
+    throw new TypeError("not a letsgo manifest");
   }
   return data;
 }
@@ -36,16 +36,18 @@ export function verifyCommand(m: Manifest): string {
 }
 
 function esc(text: string): string {
-  return text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+  return text.replace(/[&<>"']/g, (c) => `&#${c.codePointAt(0)};`);
 }
 
 function table(head: string[], rows: string[][]): string {
   if (rows.length === 0) {
     return "<p><em>none</em></p>";
   }
-  const th = head.map((h) => `<th>${esc(h)}</th>`).join("");
-  const body = rows.map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join("")}</tr>`).join("");
-  return `<table><tr>${th}</tr>${body}</table>`;
+  const cell = (tag: string, text: string): string => `<${tag}>${esc(text)}</${tag}>`;
+  const row = (tag: string, cells: string[]): string => `<tr>${cells.map((c) => cell(tag, c)).join("")}</tr>`;
+  const th = row("th", head);
+  const body = rows.map((r) => row("td", r)).join("");
+  return `<table>${th}${body}</table>`;
 }
 
 // A read-only summary of a manifest. Every value is escaped: a manifest is

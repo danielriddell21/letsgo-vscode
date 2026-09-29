@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import * as crypto from "node:crypto";
 import * as path from "node:path";
 import { isSafeTag, manifestTag, parseManifest, renderManifest, type Manifest } from "./manifest";
 import { runInPanel } from "./run";
@@ -47,7 +48,7 @@ export class ManifestEditorProvider implements vscode.CustomTextEditorProvider {
 
     const render = (): void => {
       const manifest = tryParse(document.getText());
-      const nonce = Math.random().toString(36).slice(2);
+      const nonce = crypto.randomBytes(16).toString("base64");
       const body = manifest ? renderManifest(manifest) : "<p>This file is not a letsgo manifest.</p>";
       panel.webview.html = `<!doctype html><html><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'">
