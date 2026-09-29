@@ -1,7 +1,7 @@
 {
   "name": "letsgo-vscode",
   "displayName": "letsgo",
-  "description": "A thin editor client for letsgo: a per-module panel and status bar built from `letsgo plan --json`.",
+  "description": "A thin editor client for letsgo: a per-module panel, a status bar built from `letsgo plan --json`, and language features for letsgo.mod served by `letsgo lsp`.",
   "version": "0.1.0",
   "publisher": "letsgo",
   "private": true,
@@ -67,7 +67,30 @@
           "letsgo.path"
         ]
       }
-    }
+    },
+    "languages": [
+      {
+        "id": "letsgo-mod",
+        "aliases": [
+          "letsgo.mod"
+        ],
+        "filenames": [
+          "letsgo.mod"
+        ],
+        "filenamePatterns": [
+          "**/.letsgo/*.mod",
+          "**/letsgo/config.mod"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "letsgo-mod",
+        "scopeName": "source.letsgo-mod",
+        "path": "./syntaxes/letsgo-mod.tmLanguage.json"
+      }
+    ]
   },
   "scripts": {
     "compile": "tsc -p ./",
@@ -83,5 +106,8 @@
     "@typescript-eslint/parser": "^8.15.0",
     "eslint": "^9.15.0",
     "typescript": "^5.7.0"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
   }
 }

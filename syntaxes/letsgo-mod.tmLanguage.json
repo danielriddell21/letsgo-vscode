@@ -1,0 +1,26 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "letsgo.mod",
+  "scopeName": "source.letsgo-mod",
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#directive" },
+    { "include": "#string" }
+  ],
+  "repository": {
+    "comment": {
+      "name": "comment.line.double-slash.letsgo-mod",
+      "match": "//.*$"
+    },
+    "directive": {
+      "match": "^\\s*([A-Za-z][A-Za-z0-9_-]*)(?=\\s|\\(|$)",
+      "captures": { "1": { "name": "keyword.other.directive.letsgo-mod" } }
+    },
+    "string": {
+      "name": "string.quoted.double.letsgo-mod",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [{ "name": "constant.character.escape.letsgo-mod", "match": "\\\\." }]
+    }
+  }
+}

@@ -5,9 +5,8 @@ Everything it knows comes from the `letsgo` binary on your machine — this
 extension carries no copy of its directive table, hook list or feature
 catalogue.
 
-> **Status: early.** The panel and status bar work; language features
-> (diagnostics, completion, hover, code actions) are the next phase, served
-> by `letsgo lsp`.
+> **Status: early.** The panel, status bar and language features work; code
+> actions (such as updating a plugin pin) are the next phase.
 
 ## Requirements
 
@@ -18,6 +17,13 @@ go install github.com/danielriddell21/letsgo/cmd/letsgo@latest
 ```
 
 ## What it does
+
+**Language features** for `letsgo.mod`, the global `config.mod` and
+`.letsgo/*.mod`, served by `letsgo lsp` (so they need a letsgo new enough to
+have it): diagnostics on every change, completion, hover documentation,
+formatting and an outline. Nothing about the syntax is hard-coded here; it all
+comes from the binary. In an untrusted workspace the server starts with
+`--restricted` (parse, format and complete only).
 
 A **letsgo** view in the Explorer sidebar, one entry per module (a directory
 with a `letsgo.mod`), built from `letsgo plan --json`:

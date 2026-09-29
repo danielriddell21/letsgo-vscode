@@ -3,6 +3,7 @@ import * as cp from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { resolveBinary } from "./binary";
+import { LetsgoLanguageClient } from "./client";
 import { findModules } from "./modules";
 import { parsePlan, type PlanResult } from "./plan";
 import { buildModuleTree, errorNode, type TreeNode } from "./planTree";
@@ -129,6 +130,11 @@ async function refresh(
   statusBarItem.show();
 }
 
+function configuredBinary(): string | undefined {
+  const configured = vscode.workspace.getConfiguration("letsgo").get<string>("path") || undefined;
+  return resolveBinary(configured, process.env, fileExists);
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   const provider = new LetsgoTreeProvider();
   context.subscriptions.push(vscode.window.createTreeView("letsgoModules", { treeDataProvider: provider }));
@@ -139,12 +145,23 @@ export function activate(context: vscode.ExtensionContext): void {
   const outputChannel = vscode.window.createOutputChannel("letsgo");
   context.subscriptions.push(outputChannel);
 
+  const languageClient = new LetsgoLanguageClient(configuredBinary, outputChannel);
+  context.subscriptions.push(languageClient);
+  const restartLanguageServer = (): void => {
+    void languageClient.restart();
+  };
+
   const doRefresh = (): void => {
     void refresh(provider, statusBarItem, outputChannel);
   };
 
   context.subscriptions.push(vscode.commands.registerCommand("letsgo.refresh", doRefresh));
-  context.subscriptions.push(vscode.workspace.onDidGrantWorkspaceTrust(doRefresh));
+  context.subscriptions.push(
+    vscode.workspace.onDidGrantWorkspaceTrust(() => {
+      doRefresh();
+      restartLanguageServer();
+    }),
+  );
   context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(doRefresh));
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument((doc) => {
@@ -157,11 +174,13 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("letsgo.path")) {
         doRefresh();
+        restartLanguageServer();
       }
     }),
   );
 
   doRefresh();
+  restartLanguageServer();
 }
 
 export function deactivate(): void {}
