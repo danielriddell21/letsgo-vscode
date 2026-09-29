@@ -9,6 +9,7 @@ import { parsePlan, type PlanResult } from "./plan";
 import { buildModuleTree, errorNode, type TreeNode } from "./planTree";
 import { summarize } from "./statusBar";
 import { isPlanAllowed } from "./trust";
+import { PLAN_JSON, isAvailable, outdatedMessage, probeVersion, unavailable } from "./version";
 
 function fileExists(candidate: string): boolean {
   try {
@@ -105,6 +106,16 @@ async function refresh(
     provider.refresh(modules.map((m) => errorNode(m.label, "letsgo binary not found")));
     statusBarItem.text = "$(error) letsgo: not found";
     statusBarItem.tooltip = "letsgo binary not found on PATH or letsgo.path";
+    statusBarItem.show();
+    return;
+  }
+
+  const version = await probeVersion(binary);
+  if (version !== undefined && !isAvailable(PLAN_JSON, version)) {
+    const message = outdatedMessage(version, unavailable(version));
+    provider.refresh(modules.map((m) => errorNode(m.label, message)));
+    statusBarItem.text = "$(warning) letsgo: outdated";
+    statusBarItem.tooltip = message;
     statusBarItem.show();
     return;
   }

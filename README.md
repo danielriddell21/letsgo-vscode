@@ -5,8 +5,8 @@ Everything it knows comes from the `letsgo` binary on your machine — this
 extension carries no copy of its directive table, hook list or feature
 catalogue.
 
-> **Status: early.** The panel, status bar and language features work; code
-> actions (such as updating a plugin pin) are the next phase.
+> **Status: early.** The panel, status bar, language features and the Update
+> pin quick fix work.
 
 ## Requirements
 
@@ -39,3 +39,11 @@ The status bar shows the current module's version and gate-failure count.
 In an untrusted workspace the extension never runs `letsgo plan` — a
 repository you have only opened, not trusted, cannot execute its own pinned
 plugins through it.
+
+**Update pin**: a lightbulb on a `plugin <hook> <command> <version> sha256:…`
+line installs the plugin's latest release into the plugin store and rewrites
+the pin. Not offered in an untrusted workspace.
+
+**Older letsgo**: the extension checks `letsgo version`. Features a too-old
+letsgo lacks are switched off and named in a warning — the panel needs 0.29.0,
+language features 0.30.0, Update pin 0.31.0. A dev build is assumed current.
