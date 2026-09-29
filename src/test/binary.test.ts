@@ -42,7 +42,7 @@ test("resolveBinary falls back through the search order", () => {
   const env = { GOPATH: "/gopath", PATH: "/usr/bin" };
   const target = path.join("/gopath", "bin", "letsgo");
   assert.equal(
-    resolveBinary(undefined, env, (p) => p === target),
+    resolveBinary(undefined, env, (p) => p === target, "linux"),
     target,
   );
 });
