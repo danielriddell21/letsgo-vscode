@@ -12,7 +12,9 @@ export const LSP: Feature = { name: "letsgo.mod language features (letsgo lsp)",
 export const INSTALL_PLUGINS: Feature = { name: "the Install pinned plugins command (letsgo plugin install)", minVersion: "0.29.0" };
 export const UPDATE_PIN: Feature = { name: "the Update pin quick fix", minVersion: "0.31.0" };
 
-export const FEATURES: readonly Feature[] = [PLAN_JSON, TAG_VERIFY, INSTALL_PLUGINS, LSP, UPDATE_PIN];
+export const DID_YOU_MEAN: Feature = { name: "the Did you mean quick fix", minVersion: "0.33.0" };
+
+export const FEATURES: readonly Feature[] = [PLAN_JSON, TAG_VERIFY, INSTALL_PLUGINS, LSP, UPDATE_PIN, DID_YOU_MEAN];
 
 // `letsgo version` prints "letsgo <version>": a release like v0.30.1, or "dev"
 // for a build with no version stamped in. Only a release gives a number to
