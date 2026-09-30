@@ -4,7 +4,19 @@
   "description": "A thin editor client for letsgo: a per-module panel, a status bar built from `letsgo plan --json`, and language features for letsgo.mod served by `letsgo lsp`.",
   "version": "0.1.0",
   "publisher": "letsgo",
-  "private": true,
+  "license": "MIT",
+  "icon": "images/icon.png",
+  "homepage": "https://github.com/danielriddell21/letsgo-vscode#readme",
+  "bugs": {
+    "url": "https://github.com/danielriddell21/letsgo-vscode/issues"
+  },
+  "keywords": [
+    "letsgo",
+    "release",
+    "go",
+    "golang",
+    "reproducible builds"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/danielriddell21/letsgo-vscode"
@@ -190,7 +202,8 @@
     "watch": "tsc -watch -p ./",
     "lint": "eslint src",
     "pretest": "npm run compile && npm run lint",
-    "test": "node --test \"out/test/*.test.js\""
+    "test": "node --test \"out/test/*.test.js\"",
+    "package": "npx --yes @vscode/vsce@3 package"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
