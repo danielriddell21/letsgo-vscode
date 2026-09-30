@@ -14,7 +14,7 @@ import {
 import { planArgs, planProblems } from "./commands";
 import { debounce } from "./debounce";
 import { resolvePos } from "./position";
-import { parseTags } from "./releases";
+import { findGit, parseTags } from "./releases";
 import { watchedGlobs } from "./watch";
 import { registerPaletteCommands } from "./paletteCommands";
 import { LetsgoTaskProvider } from "./taskProvider";
@@ -222,7 +222,12 @@ async function planModules(
 // one when git can't list them.
 function pickRelease(cwd: string): Promise<string | undefined> {
   return new Promise((resolve) => {
-    cp.execFile("git", ["tag", "--list", "--sort=-v:refname"], { cwd, timeout: 10_000 }, (err, stdout) => {
+    const git = findGit(fileExists);
+    if (!git) {
+      void Promise.resolve(vscode.window.showInputBox({ prompt: "Tag to verify, e.g. v1.2.0" })).then(resolve);
+      return;
+    }
+    cp.execFile(git, ["tag", "--list", "--sort=-v:refname"], { cwd, timeout: 10_000 }, (err, stdout) => {
       const tags = err ? [] : parseTags(stdout, 30);
       if (tags.length === 0) {
         void Promise.resolve(vscode.window.showInputBox({ prompt: "Tag to verify, e.g. v1.2.0" })).then(resolve);
@@ -313,9 +318,6 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.tasks.registerTaskProvider("letsgo", new LetsgoTaskProvider(configuredBinary)),
     ...registerPaletteCommands({ usable, pickModuleDir, refresh: doRefresh, output: outputChannel }),
-  );
-
-  context.subscriptions.push(
     vscode.commands.registerCommand("letsgo.refresh", () => doRefresh()),
     vscode.workspace.onDidGrantWorkspaceTrust(() => {
       doRefresh();
