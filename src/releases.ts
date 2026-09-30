@@ -4,7 +4,7 @@ import * as path from "node:path";
 // searched: a writable directory earlier on it could substitute its own git.
 const gitDirs: Record<"posix" | "win32", string[]> = {
   posix: ["/usr/bin", "/bin", "/usr/local/bin", "/opt/homebrew/bin"],
-  win32: ["C:\\Program Files\\Git\\cmd", "C:\\Program Files (x86)\\Git\\cmd"],
+  win32: [String.raw`C:\Program Files\Git\cmd`, String.raw`C:\Program Files (x86)\Git\cmd`],
 };
 
 // findGit returns the absolute path of git in a fixed system directory, or

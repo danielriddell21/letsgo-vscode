@@ -17,7 +17,7 @@ test("findGit never consults PATH", () => {
 
 test("findGit uses git.exe under Program Files on windows", () => {
   assert.equal(
-    findGit((p) => p.startsWith("C:\\Program Files (x86)"), "win32"),
-    "C:\\Program Files (x86)\\Git\\cmd\\git.exe",
+    findGit((p) => p.startsWith(String.raw`C:\Program Files (x86)`), "win32"),
+    String.raw`C:\Program Files (x86)\Git\cmd\git.exe`,
   );
 });
