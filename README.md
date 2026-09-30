@@ -85,3 +85,19 @@ publishes a release.
 **Older letsgo**: the extension checks `letsgo version`. Features a too-old
 letsgo lacks are switched off and named in a warning — the panel, Tag and Verify need 0.29.0,
 Install pinned plugins 0.29.0, language features 0.30.0, Update pin 0.31.0. A dev build is assumed current.
+
+## Development
+
+```sh
+npm ci --ignore-scripts
+npm test            # compile, lint, unit tests (no VS Code needed)
+npm run test:host   # extension-host tests in a real VS Code
+```
+
+`npm run test:host` downloads VS Code into `.vscode-test/` on first run and
+runs two suites in its extension host, one in a trusted workspace and one in an
+untrusted one, against a fixture workspace (`src/test/host/fixtures`). A fake
+`letsgo` script first on `PATH` stands in for the binary, so no letsgo install
+is needed; it logs every call, which is how the tests see what the extension
+ran. On a headless Linux box wrap it in `xvfb-run -a`; CI does. The host tests
+need Linux or macOS. Set `VSCODE_TEST_VERSION` to test another VS Code version.

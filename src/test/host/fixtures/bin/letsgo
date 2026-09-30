@@ -1,0 +1,119 @@
+#!/usr/bin/env node
+// A stand-in for the letsgo binary, used by the extension-host tests. It
+// records every invocation in $LETSGO_FAKE_LOG and answers just enough of the
+// real interface (version, plan --json, lsp) for the extension to drive.
+"use strict";
+const fs = require("node:fs");
+const path = require("node:path");
+
+const args = process.argv.slice(2);
+if (process.env.LETSGO_FAKE_LOG) {
+  fs.appendFileSync(process.env.LETSGO_FAKE_LOG, JSON.stringify({ args, cwd: process.cwd() }) + "\n");
+}
+
+function readMod() {
+  try {
+    return fs.readFileSync(path.join(process.cwd(), "letsgo.mod"), "utf8");
+  } catch {
+    return "";
+  }
+}
+
+function plan() {
+  // A line reading `bad-budget` in letsgo.mod makes the plan report a failing
+  // check at that line, so a change to the file is visible in the result.
+  const lines = readMod().split("\n");
+  const at = lines.findIndex((l) => l.includes("bad-budget"));
+  const checks = [{ name: "tests", status: "pass", detail: "" }];
+  if (at >= 0) {
+    checks.push({
+      name: "budget",
+      status: "fail",
+      detail: "names a target that is not built",
+      pos: { file: "letsgo.mod", line: at + 1, col: 1 },
+    });
+  }
+  process.stdout.write(
+    JSON.stringify({ schema: 1, project: "fixture", version: "v0.1.0", commit: "0000000", checks, features: {} }),
+  );
+}
+
+// A minimal language server: it answers initialize, publishes one diagnostic
+// for every line containing `bogus`, and exits on shutdown.
+function lsp() {
+  let buffer = Buffer.alloc(0);
+  const send = (message) => {
+    const body = Buffer.from(JSON.stringify({ jsonrpc: "2.0", ...message }));
+    process.stdout.write(`Content-Length: ${body.length}\r\n\r\n`);
+    process.stdout.write(body);
+  };
+  const publish = (uri, text) => {
+    const diagnostics = [];
+    text.split("\n").forEach((line, i) => {
+      const col = line.indexOf("bogus");
+      if (col >= 0) {
+        diagnostics.push({
+          range: { start: { line: i, character: col }, end: { line: i, character: col + 5 } },
+          severity: 1,
+          source: "letsgo lsp",
+          message: "unknown directive bogus",
+        });
+      }
+    });
+    send({ method: "textDocument/publishDiagnostics", params: { uri, diagnostics } });
+  };
+  const handle = (msg) => {
+    switch (msg.method) {
+      case "initialize":
+        send({ id: msg.id, result: { capabilities: { textDocumentSync: 1 } } });
+        break;
+      case "shutdown":
+        send({ id: msg.id, result: null });
+        break;
+      case "exit":
+        process.exit(0);
+        break;
+      case "textDocument/didOpen":
+        publish(msg.params.textDocument.uri, msg.params.textDocument.text);
+        break;
+      case "textDocument/didChange":
+        publish(msg.params.textDocument.uri, msg.params.contentChanges[msg.params.contentChanges.length - 1].text);
+        break;
+      default:
+        if (msg.id !== undefined && msg.method) {
+          send({ id: msg.id, result: null });
+        }
+    }
+  };
+  process.stdin.on("data", (chunk) => {
+    buffer = Buffer.concat([buffer, chunk]);
+    for (;;) {
+      const end = buffer.indexOf("\r\n\r\n");
+      if (end < 0) {
+        return;
+      }
+      const length = Number(/Content-Length: (\d+)/i.exec(buffer.subarray(0, end).toString())[1]);
+      if (buffer.length < end + 4 + length) {
+        return;
+      }
+      const body = buffer.subarray(end + 4, end + 4 + length).toString();
+      buffer = buffer.subarray(end + 4 + length);
+      handle(JSON.parse(body));
+    }
+  });
+  process.stdin.on("end", () => process.exit(0));
+}
+
+switch (args[0]) {
+  case "version":
+    process.stdout.write("letsgo v0.31.0\n");
+    break;
+  case "plan":
+    plan();
+    break;
+  case "lsp":
+    lsp();
+    break;
+  default:
+    process.stdout.write(`fake letsgo: ${args.join(" ")}\n`);
+}

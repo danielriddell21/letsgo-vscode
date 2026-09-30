@@ -203,14 +203,18 @@
     "lint": "eslint src",
     "pretest": "npm run compile && npm run lint",
     "test": "node --test \"out/test/*.test.js\"",
+    "test:host": "npm run compile && node ./out/test/host/runTest.js",
     "package": "vsce package"
   },
   "devDependencies": {
+    "@types/mocha": "^10.0.10",
     "@types/node": "^22.10.0",
     "@types/vscode": "^1.90.0",
     "@typescript-eslint/eslint-plugin": "^8.15.0",
     "@typescript-eslint/parser": "^8.15.0",
+    "@vscode/test-electron": "^3.1.0",
     "eslint": "^9.15.0",
+    "mocha": "^12.0.2",
     "typescript": "^5.7.0"
   },
   "dependencies": {
