@@ -72,19 +72,26 @@ Checks that point at a line of `letsgo.mod` (a budget naming a target that
 isn't built, say) also show as squiggles there and in Problems.
 
 **Tasks**: a `letsgo` task type for `tasks.json`, with a `$letsgo` problem
-matcher for `letsgo.mod:L:C: message` lines:
+matcher for `letsgo.mod:L:C: message` lines. It runs `plan`, `build`, `verify`,
+`diff`, `doctor`, `features`, `audit` and `plugin`, plus `release` only with
+`--snapshot`: the extension never publishes a release.
 
 ```json
 { "type": "letsgo", "command": "plan", "args": ["--analyse"], "problemMatcher": "$letsgo" }
 ```
 
-It runs `plan`, `build`, `verify`, `diff`, `doctor`, `features`, `audit`
-and `plugin`, plus `release` only with `--snapshot`: the extension never
-publishes a release.
+**Older letsgo**: the extension checks `letsgo version` and switches off
+features a too-old binary lacks, named once in a warning rather than failing
+repeatedly. See [Editor support][docs] for the version each feature needs.
 
-**Older letsgo**: the extension checks `letsgo version`. Features a too-old
-letsgo lacks are switched off and named in a warning — the panel, Tag and Verify need 0.29.0,
-Install pinned plugins 0.29.0, language features 0.30.0, Update pin 0.31.0. A dev build is assumed current.
+## Documentation
+
+Full docs — the LSP methods, every command, the task type, and how this fits
+into the rest of letsgo — live on the [Editor support][docs] page of the
+[letsgo wiki][wiki].
+
+[docs]: https://github.com/danielriddell21/letsgo/wiki/Editor-Support
+[wiki]: https://github.com/danielriddell21/letsgo/wiki
 
 ## Development
 
