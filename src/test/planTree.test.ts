@@ -43,3 +43,10 @@ test("errorNode carries the failure message as detail", () => {
   assert.equal(node.kind, "error");
   assert.equal(node.detail, "binary not found");
 });
+
+test("buildModuleTree marks a stale plan and carries the module dir on checks", () => {
+  const plan = basePlan({ version: "v1.0.0", checks: [{ name: "budgets", status: "fail", detail: "", pos: { file: "letsgo.mod", line: 2, col: 1 } }] });
+  const tree = buildModuleTree("root", plan, { dir: "/w", stale: true });
+  assert.equal(tree.description, "v1.0.0 (stale)");
+  assert.equal(tree.children?.[0].children?.[0].dir, "/w");
+});

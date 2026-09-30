@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { summarize } from "../statusBar";
+import { markStale, summarize } from "../statusBar";
 import type { PlanResult } from "../plan";
 
 function plan(checks: PlanResult["checks"]): PlanResult {
@@ -31,4 +31,10 @@ test("summarize reports warnings when nothing is failing", () => {
 test("summarize reports all clear", () => {
   const s = summarize([plan([{ name: "a", status: "pass", detail: "" }])]);
   assert.doesNotMatch(s.text, /warning|failing/);
+});
+
+test("markStale flags the summary", () => {
+  const s = markStale(summarize([plan([])]));
+  assert.match(s.text, /\(stale\)$/);
+  assert.match(s.tooltip, /last refresh failed/);
 });

@@ -12,13 +12,17 @@ import {
   verifyRelease,
 } from "./manifestViewer";
 import { planArgs, planProblems } from "./commands";
+import { debounce } from "./debounce";
+import { resolvePos } from "./position";
+import { parseTags } from "./releases";
+import { watchedGlobs } from "./watch";
 import { registerPaletteCommands } from "./paletteCommands";
 import { LetsgoTaskProvider } from "./taskProvider";
 import { tagNextVersion } from "./tagCommand";
 import { findModules } from "./modules";
-import { parsePlan, type PlanResult } from "./plan";
+import { parsePlan, type PlanResult, type Pos } from "./plan";
 import { buildModuleTree, errorNode, type TreeNode } from "./planTree";
-import { summarize } from "./statusBar";
+import { markStale, summarize } from "./statusBar";
 import { isPlanAllowed } from "./trust";
 import { PLAN_JSON, TAG_VERIFY, isAvailable, outdatedMessage, probeVersion, unavailable, type Feature } from "./version";
 
@@ -35,9 +39,11 @@ function hasLetsgoMod(dir: string): boolean {
   return fs.existsSync(path.join(dir, "letsgo.mod"));
 }
 
+const planTimeoutMs = 60_000;
+
 function runPlanJSON(binary: string, cwd: string, analyse: boolean): Promise<PlanResult> {
   return new Promise((resolve, reject) => {
-    cp.execFile(binary, planArgs(analyse), { cwd, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+    cp.execFile(binary, planArgs(analyse), { cwd, maxBuffer: 10 * 1024 * 1024, timeout: planTimeoutMs }, (err, stdout, stderr) => {
       if (stdout) {
         try {
           resolve(parsePlan(stdout));
@@ -70,6 +76,9 @@ class LetsgoTreeProvider implements vscode.TreeDataProvider<TreeNode> {
     item.description = element.description;
     item.tooltip = element.detail ?? element.label;
     item.contextValue = element.kind;
+    if (element.pos && element.dir) {
+      item.command = { command: "letsgo.openPosition", title: "Open", arguments: [element.dir, element.pos] };
+    }
     if (element.status === "fail") {
       item.iconPath = new vscode.ThemeIcon("error");
     } else if (element.status === "warn") {
@@ -85,6 +94,8 @@ class LetsgoTreeProvider implements vscode.TreeDataProvider<TreeNode> {
     return element.children ?? [];
   }
 }
+
+const lastPlans = new Map<string, PlanResult>();
 
 async function refresh(
   provider: LetsgoTreeProvider,
@@ -136,21 +147,30 @@ async function refresh(
 
   const nodes: TreeNode[] = [];
   const plans: PlanResult[] = [];
+  let stale = false;
   for (const m of modules) {
     try {
       const plan = await runPlanJSON(binary, m.dir, analyse);
+      lastPlans.set(m.dir, plan);
       plans.push(plan);
       publishProblems(problems, plan, m.dir);
-      nodes.push(buildModuleTree(m.label, plan));
+      nodes.push(buildModuleTree(m.label, plan, { dir: m.dir }));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      nodes.push(errorNode(m.label, message));
       outputChannel.appendLine(`letsgo plan --json failed in ${m.dir}: ${message}`);
+      const previous = lastPlans.get(m.dir);
+      if (previous) {
+        stale = true;
+        plans.push(previous);
+        nodes.push(buildModuleTree(m.label, previous, { dir: m.dir, stale: true }));
+      } else {
+        nodes.push(errorNode(m.label, message));
+      }
     }
   }
 
   provider.refresh(nodes);
-  const summary = summarize(plans);
+  const summary = stale ? markStale(summarize(plans)) : summarize(plans);
   statusBarItem.text = summary.text;
   statusBarItem.tooltip = summary.tooltip;
   statusBarItem.show();
@@ -177,6 +197,21 @@ function publishProblems(collection: vscode.DiagnosticCollection, plan: PlanResu
 function configuredBinary(): string | undefined {
   const configured = vscode.workspace.getConfiguration("letsgo").get<string>("path") || undefined;
   return resolveBinary(configured, process.env, fileExists);
+}
+
+// pickRelease offers the module's tags newest first, falling back to typing
+// one when git can't list them.
+function pickRelease(cwd: string): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    cp.execFile("git", ["tag", "--list", "--sort=-v:refname"], { cwd, timeout: 10_000 }, (err, stdout) => {
+      const tags = err ? [] : parseTags(stdout, 30);
+      if (tags.length === 0) {
+        void Promise.resolve(vscode.window.showInputBox({ prompt: "Tag to verify, e.g. v1.2.0" })).then(resolve);
+        return;
+      }
+      void Promise.resolve(vscode.window.showQuickPick(tags, { placeHolder: "Release to verify" })).then(resolve);
+    });
+  });
 }
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -242,7 +277,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("letsgo.verify", async (tag?: string, dir?: string) => {
       const binary = await usable();
       const cwd = dir ?? (await pickModuleDir());
-      const ref = tag ?? (await vscode.window.showInputBox({ prompt: "Tag to verify, e.g. v1.2.0" }));
+      const ref = tag ?? (cwd ? await pickRelease(cwd) : undefined);
       if (binary && cwd && ref) {
         await verifyRelease(binary, ref, cwd, vscode.workspace.isTrusted);
       }
@@ -254,6 +289,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const doRefresh = (analyse = false): void => {
     void refresh(provider, statusBarItem, outputChannel, problems, analyse);
   };
+  const scheduleRefresh = debounce(() => doRefresh(), 500);
 
   context.subscriptions.push(
     vscode.tasks.registerTaskProvider("letsgo", new LetsgoTaskProvider(configuredBinary)),
@@ -268,11 +304,20 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
   context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(() => doRefresh()));
+  for (const folder of vscode.workspace.workspaceFolders ?? []) {
+    for (const glob of watchedGlobs) {
+      const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(folder, glob));
+      watcher.onDidChange(scheduleRefresh);
+      watcher.onDidCreate(scheduleRefresh);
+      watcher.onDidDelete(scheduleRefresh);
+      context.subscriptions.push(watcher);
+    }
+  }
   context.subscriptions.push(
-    vscode.workspace.onDidSaveTextDocument((doc) => {
-      if (doc.fileName.endsWith("letsgo.mod")) {
-        doRefresh();
-      }
+    vscode.commands.registerCommand("letsgo.openPosition", async (dir: string, pos: Pos) => {
+      const target = resolvePos(dir, pos);
+      const at = new vscode.Position(target.line, target.col);
+      await vscode.window.showTextDocument(vscode.Uri.file(target.file), { selection: new vscode.Range(at, at) });
     }),
   );
   context.subscriptions.push(

@@ -34,6 +34,10 @@
     ],
     "commands": [
       {
+        "command": "letsgo.openPosition",
+        "title": "letsgo: Open position"
+      },
+      {
         "command": "letsgo.refresh",
         "title": "letsgo: Refresh",
         "icon": "$(refresh)"
@@ -72,6 +76,12 @@
       }
     ],
     "menus": {
+      "commandPalette": [
+        {
+          "command": "letsgo.openPosition",
+          "when": "false"
+        }
+      ],
       "view/title": [
         {
           "command": "letsgo.refresh",

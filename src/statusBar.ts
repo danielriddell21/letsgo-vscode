@@ -39,3 +39,8 @@ export function summarize(plans: PlanResult[]): StatusSummary {
   }
   return { text: "$(check) letsgo", tooltip: "All checks passing", isError: false };
 }
+
+// markStale flags a summary built from a plan that could not be refreshed.
+export function markStale(summary: StatusSummary): StatusSummary {
+  return { ...summary, text: `${summary.text} (stale)`, tooltip: `${summary.tooltip}; the last refresh failed` };
+}

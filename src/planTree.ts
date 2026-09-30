@@ -19,10 +19,16 @@ export interface TreeNode {
   detail?: string;
   status?: Status;
   pos?: Pos;
+  dir?: string;
   children?: TreeNode[];
 }
 
-export function buildModuleTree(moduleLabel: string, plan: PlanResult): TreeNode {
+export interface TreeOptions {
+  dir?: string;
+  stale?: boolean;
+}
+
+export function buildModuleTree(moduleLabel: string, plan: PlanResult, options: TreeOptions = {}): TreeNode {
   const children: TreeNode[] = [];
 
   if (plan.checks.length > 0) {
@@ -36,6 +42,7 @@ export function buildModuleTree(moduleLabel: string, plan: PlanResult): TreeNode
         detail: c.detail,
         status: c.status,
         pos: c.pos,
+        dir: options.dir,
       })),
     });
   }
@@ -83,7 +90,7 @@ export function buildModuleTree(moduleLabel: string, plan: PlanResult): TreeNode
   return {
     kind: "module",
     label: moduleLabel,
-    description: plan.version,
+    description: options.stale ? `${plan.version ?? ""} (stale)`.trim() : plan.version,
     status: failing ? "fail" : undefined,
     children,
   };
