@@ -9,9 +9,10 @@ export interface Feature {
 export const PLAN_JSON: Feature = { name: "the module panel and status bar (letsgo plan --json)", minVersion: "0.29.0" };
 export const TAG_VERIFY: Feature = { name: "the Tag and Verify commands (--json)", minVersion: "0.29.0" };
 export const LSP: Feature = { name: "letsgo.mod language features (letsgo lsp)", minVersion: "0.30.0" };
+export const INSTALL_PLUGINS: Feature = { name: "the Install pinned plugins command (letsgo plugin install)", minVersion: "0.29.0" };
 export const UPDATE_PIN: Feature = { name: "the Update pin quick fix", minVersion: "0.31.0" };
 
-export const FEATURES: readonly Feature[] = [PLAN_JSON, TAG_VERIFY, LSP, UPDATE_PIN];
+export const FEATURES: readonly Feature[] = [PLAN_JSON, TAG_VERIFY, INSTALL_PLUGINS, LSP, UPDATE_PIN];
 
 // `letsgo version` prints "letsgo <version>": a release like v0.30.1, or "dev"
 // for a build with no version stamped in. Only a release gives a number to

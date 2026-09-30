@@ -45,6 +45,30 @@
       {
         "command": "letsgo.verify",
         "title": "letsgo: Verify release"
+      },
+      {
+        "command": "letsgo.planAnalyse",
+        "title": "letsgo: Plan with analysis"
+      },
+      {
+        "command": "letsgo.buildSnapshot",
+        "title": "letsgo: Build snapshot"
+      },
+      {
+        "command": "letsgo.rehearse",
+        "title": "letsgo: Rehearse release"
+      },
+      {
+        "command": "letsgo.diff",
+        "title": "letsgo: Diff releases"
+      },
+      {
+        "command": "letsgo.installPlugins",
+        "title": "letsgo: Install pinned plugins"
+      },
+      {
+        "command": "letsgo.update",
+        "title": "letsgo: Update letsgo"
       }
     ],
     "menus": {
@@ -109,6 +133,45 @@
           }
         ],
         "priority": "option"
+      }
+    ],
+    "taskDefinitions": [
+      {
+        "type": "letsgo",
+        "required": [
+          "command"
+        ],
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "The letsgo subcommand: plan, build, release (with --snapshot), verify, diff, doctor, features, audit or plugin."
+          },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Arguments for the subcommand."
+          }
+        }
+      }
+    ],
+    "problemMatchers": [
+      {
+        "name": "letsgo",
+        "owner": "letsgo",
+        "source": "letsgo",
+        "fileLocation": [
+          "relative",
+          "${workspaceFolder}"
+        ],
+        "pattern": {
+          "regexp": "^(.+?):(\\d+):(\\d+):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "message": 4
+        }
       }
     ]
   },

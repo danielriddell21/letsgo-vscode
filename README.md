@@ -5,8 +5,9 @@ Everything it knows comes from the `letsgo` binary on your machine — this
 extension carries no copy of its directive table, hook list or feature
 catalogue.
 
-> **Status: early.** The panel, status bar, language features, Update pin,
-> Tag next version and the manifest viewer work.
+> **Status: v1.** The panel, status bar, language features, Update pin, Tag
+> next version, the manifest viewer, the palette commands and the `letsgo` task
+> type work.
 
 ## Requirements
 
@@ -55,6 +56,32 @@ output in the terminal panel), and "Reopen Editor With… → letsgo manifest"
 shows its artifacts, gates, features and plugins with a Verify button.
 `letsgo: Verify release` asks for a tag.
 
+**Commands** (Command Palette, all from the binary on your machine; each runs
+in the terminal panel unless noted, and none runs in an untrusted workspace):
+
+| command | runs |
+| --- | --- |
+| Plan with analysis | `letsgo plan --json --analyse`, refreshing the panel |
+| Build snapshot | `letsgo build --snapshot` |
+| Rehearse release | `letsgo release --snapshot` (publishes nothing) |
+| Diff releases | `letsgo diff <from> [to]`, shown in a read-only document |
+| Install pinned plugins | `letsgo plugin install` |
+| Update letsgo | `letsgo update`, after showing what is available and asking |
+
+Checks that point at a line of `letsgo.mod` (a budget naming a target that
+isn't built, say) also show as squiggles there and in Problems.
+
+**Tasks**: a `letsgo` task type for `tasks.json`, with a `$letsgo` problem
+matcher for `letsgo.mod:L:C: message` lines:
+
+```json
+{ "type": "letsgo", "command": "plan", "args": ["--analyse"], "problemMatcher": "$letsgo" }
+```
+
+It runs `plan`, `build`, `verify`, `diff`, `doctor`, `features`, `audit`
+and `plugin`, plus `release` only with `--snapshot`: the extension never
+publishes a release.
+
 **Older letsgo**: the extension checks `letsgo version`. Features a too-old
 letsgo lacks are switched off and named in a warning — the panel, Tag and Verify need 0.29.0,
-language features 0.30.0, Update pin 0.31.0. A dev build is assumed current.
+Install pinned plugins 0.29.0, language features 0.30.0, Update pin 0.31.0. A dev build is assumed current.

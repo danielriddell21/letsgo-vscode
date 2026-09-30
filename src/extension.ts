@@ -11,13 +11,16 @@ import {
   ManifestLensProvider,
   verifyRelease,
 } from "./manifestViewer";
+import { planArgs, planProblems } from "./commands";
+import { registerPaletteCommands } from "./paletteCommands";
+import { LetsgoTaskProvider } from "./taskProvider";
 import { tagNextVersion } from "./tagCommand";
 import { findModules } from "./modules";
 import { parsePlan, type PlanResult } from "./plan";
 import { buildModuleTree, errorNode, type TreeNode } from "./planTree";
 import { summarize } from "./statusBar";
 import { isPlanAllowed } from "./trust";
-import { PLAN_JSON, TAG_VERIFY, isAvailable, outdatedMessage, probeVersion, unavailable } from "./version";
+import { PLAN_JSON, TAG_VERIFY, isAvailable, outdatedMessage, probeVersion, unavailable, type Feature } from "./version";
 
 function fileExists(candidate: string): boolean {
   try {
@@ -32,9 +35,9 @@ function hasLetsgoMod(dir: string): boolean {
   return fs.existsSync(path.join(dir, "letsgo.mod"));
 }
 
-function runPlanJSON(binary: string, cwd: string): Promise<PlanResult> {
+function runPlanJSON(binary: string, cwd: string, analyse: boolean): Promise<PlanResult> {
   return new Promise((resolve, reject) => {
-    cp.execFile(binary, ["plan", "--json"], { cwd, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+    cp.execFile(binary, planArgs(analyse), { cwd, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
       if (stdout) {
         try {
           resolve(parsePlan(stdout));
@@ -87,7 +90,10 @@ async function refresh(
   provider: LetsgoTreeProvider,
   statusBarItem: vscode.StatusBarItem,
   outputChannel: vscode.OutputChannel,
+  problems: vscode.DiagnosticCollection,
+  analyse: boolean,
 ): Promise<void> {
+  problems.clear();
   if (!isPlanAllowed(vscode.workspace.isTrusted)) {
     provider.refresh([]);
     statusBarItem.text = "$(shield) letsgo";
@@ -132,8 +138,9 @@ async function refresh(
   const plans: PlanResult[] = [];
   for (const m of modules) {
     try {
-      const plan = await runPlanJSON(binary, m.dir);
+      const plan = await runPlanJSON(binary, m.dir, analyse);
       plans.push(plan);
+      publishProblems(problems, plan, m.dir);
       nodes.push(buildModuleTree(m.label, plan));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -147,6 +154,24 @@ async function refresh(
   statusBarItem.text = summary.text;
   statusBarItem.tooltip = summary.tooltip;
   statusBarItem.show();
+}
+
+// Checks that name a line of config land in Problems and as squiggles there.
+function publishProblems(collection: vscode.DiagnosticCollection, plan: PlanResult, dir: string): void {
+  const byFile = new Map<string, vscode.Diagnostic[]>();
+  for (const p of planProblems(plan, dir)) {
+    const at = new vscode.Position(p.line - 1, p.col - 1);
+    const diagnostic = new vscode.Diagnostic(
+      new vscode.Range(at, at.translate(0, 1)),
+      p.message,
+      p.severity === "error" ? vscode.DiagnosticSeverity.Error : vscode.DiagnosticSeverity.Warning,
+    );
+    diagnostic.source = "letsgo plan";
+    byFile.set(p.file, [...(byFile.get(p.file) ?? []), diagnostic]);
+  }
+  for (const [file, diagnostics] of byFile) {
+    collection.set(vscode.Uri.file(file), diagnostics);
+  }
 }
 
 function configuredBinary(): string | undefined {
@@ -164,6 +189,9 @@ export function activate(context: vscode.ExtensionContext): void {
   const outputChannel = vscode.window.createOutputChannel("letsgo");
   context.subscriptions.push(outputChannel);
 
+  const problems = vscode.languages.createDiagnosticCollection("letsgo plan");
+  context.subscriptions.push(problems);
+
   const languageClient = new LetsgoLanguageClient(configuredBinary, outputChannel);
   context.subscriptions.push(languageClient);
   const restartLanguageServer = (): void => {
@@ -172,14 +200,14 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Tag and Verify need a letsgo with --json on tag and verify; an unknown
   // version is assumed to have it, the same as everywhere else.
-  const usable = async (): Promise<string | undefined> => {
+  const usable = async (feature: Feature = TAG_VERIFY): Promise<string | undefined> => {
     const binary = configuredBinary();
     if (!binary) {
       void vscode.window.showWarningMessage("letsgo was not found; install it or set letsgo.path.");
       return undefined;
     }
     const version = await probeVersion(binary);
-    if (version !== undefined && !isAvailable(TAG_VERIFY, version)) {
+    if (version !== undefined && !isAvailable(feature, version)) {
       void vscode.window.showWarningMessage(outdatedMessage(version, unavailable(version)));
       return undefined;
     }
@@ -223,18 +251,23 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.languages.registerCodeLensProvider(MANIFEST_SELECTOR, new ManifestLensProvider()),
   );
 
-  const doRefresh = (): void => {
-    void refresh(provider, statusBarItem, outputChannel);
+  const doRefresh = (analyse = false): void => {
+    void refresh(provider, statusBarItem, outputChannel, problems, analyse);
   };
 
-  context.subscriptions.push(vscode.commands.registerCommand("letsgo.refresh", doRefresh));
+  context.subscriptions.push(
+    vscode.tasks.registerTaskProvider("letsgo", new LetsgoTaskProvider(configuredBinary)),
+    ...registerPaletteCommands({ usable, pickModuleDir, refresh: doRefresh, output: outputChannel }),
+  );
+
+  context.subscriptions.push(vscode.commands.registerCommand("letsgo.refresh", () => doRefresh()));
   context.subscriptions.push(
     vscode.workspace.onDidGrantWorkspaceTrust(() => {
       doRefresh();
       restartLanguageServer();
     }),
   );
-  context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(doRefresh));
+  context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(() => doRefresh()));
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument((doc) => {
       if (doc.fileName.endsWith("letsgo.mod")) {

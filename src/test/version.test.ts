@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { LSP, PLAN_JSON, TAG_VERIFY, UPDATE_PIN, isAvailable, outdatedMessage, parseVersion, unavailable } from "../version";
+import { INSTALL_PLUGINS, LSP, PLAN_JSON, TAG_VERIFY, UPDATE_PIN, isAvailable, outdatedMessage, parseVersion, unavailable } from "../version";
 
 test("parseVersion reads a release and ignores a dev build", () => {
   assert.equal(parseVersion("letsgo v0.30.1\n"), "0.30.1");
@@ -10,7 +10,7 @@ test("parseVersion reads a release and ignores a dev build", () => {
 });
 
 test("an old letsgo lacks the features added after it", () => {
-  assert.deepEqual(unavailable("0.28.0"), [PLAN_JSON, TAG_VERIFY, LSP, UPDATE_PIN]);
+  assert.deepEqual(unavailable("0.28.0"), [PLAN_JSON, TAG_VERIFY, INSTALL_PLUGINS, LSP, UPDATE_PIN]);
   assert.deepEqual(unavailable("0.29.0"), [LSP, UPDATE_PIN]);
   assert.deepEqual(unavailable("0.30.1"), [UPDATE_PIN]);
   assert.deepEqual(unavailable("0.31.0"), []);
@@ -32,4 +32,10 @@ test("the message names the version and each missing feature", () => {
   assert.match(message, /0\.28\.0/);
   assert.match(message, /letsgo lsp/);
   assert.match(message, /plan --json/);
+});
+
+test("Install pinned plugins needs 0.29.0", () => {
+  assert.ok(!isAvailable(INSTALL_PLUGINS, "0.28.0"));
+  assert.ok(isAvailable(INSTALL_PLUGINS, "0.29.0"));
+  assert.ok(isAvailable(INSTALL_PLUGINS, undefined));
 });
