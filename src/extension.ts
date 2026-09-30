@@ -145,29 +145,7 @@ async function refresh(
     return;
   }
 
-  const nodes: TreeNode[] = [];
-  const plans: PlanResult[] = [];
-  let stale = false;
-  for (const m of modules) {
-    try {
-      const plan = await runPlanJSON(binary, m.dir, analyse);
-      lastPlans.set(m.dir, plan);
-      plans.push(plan);
-      publishProblems(problems, plan, m.dir);
-      nodes.push(buildModuleTree(m.label, plan, { dir: m.dir }));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      outputChannel.appendLine(`letsgo plan --json failed in ${m.dir}: ${message}`);
-      const previous = lastPlans.get(m.dir);
-      if (previous) {
-        stale = true;
-        plans.push(previous);
-        nodes.push(buildModuleTree(m.label, previous, { dir: m.dir, stale: true }));
-      } else {
-        nodes.push(errorNode(m.label, message));
-      }
-    }
-  }
+  const { nodes, plans, stale } = await planModules(modules, binary, analyse, problems, outputChannel);
 
   provider.refresh(nodes);
   const summary = stale ? markStale(summarize(plans)) : summarize(plans);
@@ -197,6 +175,47 @@ function publishProblems(collection: vscode.DiagnosticCollection, plan: PlanResu
 function configuredBinary(): string | undefined {
   const configured = vscode.workspace.getConfiguration("letsgo").get<string>("path") || undefined;
   return resolveBinary(configured, process.env, fileExists);
+}
+
+interface PlannedModules {
+  nodes: TreeNode[];
+  plans: PlanResult[];
+  stale: boolean;
+}
+
+// planModules runs `letsgo plan --json` in every module. A module whose plan
+// fails keeps its last good result, marked stale, so the panel does not go
+// blank on a transient error.
+async function planModules(
+  modules: { label: string; dir: string }[],
+  binary: string,
+  analyse: boolean,
+  problems: vscode.DiagnosticCollection,
+  outputChannel: vscode.OutputChannel,
+): Promise<PlannedModules> {
+  const settled = await Promise.all(
+    modules.map(async (m) => {
+      try {
+        const plan = await runPlanJSON(binary, m.dir, analyse);
+        lastPlans.set(m.dir, plan);
+        publishProblems(problems, plan, m.dir);
+        return { plan, node: buildModuleTree(m.label, plan, { dir: m.dir }), stale: false };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        outputChannel.appendLine(`letsgo plan --json failed in ${m.dir}: ${message}`);
+        const previous = lastPlans.get(m.dir);
+        if (!previous) {
+          return { plan: undefined, node: errorNode(m.label, message), stale: false };
+        }
+        return { plan: previous, node: buildModuleTree(m.label, previous, { dir: m.dir, stale: true }), stale: true };
+      }
+    }),
+  );
+  return {
+    nodes: settled.map((r) => r.node),
+    plans: settled.flatMap((r) => (r.plan ? [r.plan] : [])),
+    stale: settled.some((r) => r.stale),
+  };
 }
 
 // pickRelease offers the module's tags newest first, falling back to typing
@@ -296,21 +315,23 @@ export function activate(context: vscode.ExtensionContext): void {
     ...registerPaletteCommands({ usable, pickModuleDir, refresh: doRefresh, output: outputChannel }),
   );
 
-  context.subscriptions.push(vscode.commands.registerCommand("letsgo.refresh", () => doRefresh()));
   context.subscriptions.push(
+    vscode.commands.registerCommand("letsgo.refresh", () => doRefresh()),
     vscode.workspace.onDidGrantWorkspaceTrust(() => {
       doRefresh();
       restartLanguageServer();
     }),
+    vscode.workspace.onDidChangeWorkspaceFolders(() => doRefresh()),
   );
-  context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(() => doRefresh()));
   for (const folder of vscode.workspace.workspaceFolders ?? []) {
     for (const glob of watchedGlobs) {
       const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(folder, glob));
-      watcher.onDidChange(scheduleRefresh);
-      watcher.onDidCreate(scheduleRefresh);
-      watcher.onDidDelete(scheduleRefresh);
-      context.subscriptions.push(watcher);
+      context.subscriptions.push(
+        watcher,
+        watcher.onDidChange(scheduleRefresh),
+        watcher.onDidCreate(scheduleRefresh),
+        watcher.onDidDelete(scheduleRefresh),
+      );
     }
   }
   context.subscriptions.push(
@@ -319,8 +340,6 @@ export function activate(context: vscode.ExtensionContext): void {
       const at = new vscode.Position(target.line, target.col);
       await vscode.window.showTextDocument(vscode.Uri.file(target.file), { selection: new vscode.Range(at, at) });
     }),
-  );
-  context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("letsgo.path")) {
         doRefresh();
@@ -333,4 +352,6 @@ export function activate(context: vscode.ExtensionContext): void {
   restartLanguageServer();
 }
 
-export function deactivate(): void {}
+export function deactivate(): void {
+  // Everything is disposed through context.subscriptions.
+}

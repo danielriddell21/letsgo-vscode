@@ -203,7 +203,7 @@
     "lint": "eslint src",
     "pretest": "npm run compile && npm run lint",
     "test": "node --test \"out/test/*.test.js\"",
-    "package": "npx --yes @vscode/vsce@3 package"
+    "package": "vsce package"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

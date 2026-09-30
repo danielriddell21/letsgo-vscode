@@ -11,17 +11,9 @@ export function summarize(plans: PlanResult[]): StatusSummary {
     return { text: "$(circle-slash) letsgo", tooltip: "No letsgo.mod found in this workspace.", isError: false };
   }
 
-  let fails = 0;
-  let warns = 0;
-  for (const plan of plans) {
-    for (const check of plan.checks) {
-      if (check.status === "fail") {
-        fails++;
-      } else if (check.status === "warn") {
-        warns++;
-      }
-    }
-  }
+  const checks = plans.flatMap((plan) => plan.checks);
+  const fails = checks.filter((c) => c.status === "fail").length;
+  const warns = checks.filter((c) => c.status === "warn").length;
 
   if (fails > 0) {
     return {
