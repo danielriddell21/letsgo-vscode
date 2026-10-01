@@ -1,60 +1,64 @@
 import type { LetsgoCli } from "./cli";
 
-// A letsgo feature this extension leans on, and the first release that has it.
+// A letsgo feature this extension leans on, and the capability letsgo
+// advertises for it in `letsgo version --json`.
 export interface Feature {
   name: string;
-  minVersion: string;
+  capability: string;
 }
 
-export const PLAN_JSON: Feature = { name: "the module panel and status bar (letsgo plan --json)", minVersion: "0.29.0" };
-export const TAG_VERIFY: Feature = { name: "the Tag and Verify commands (--json)", minVersion: "0.29.0" };
-export const LSP: Feature = { name: "letsgo.mod language features (letsgo lsp)", minVersion: "0.30.0" };
-export const INSTALL_PLUGINS: Feature = { name: "the Install pinned plugins command (letsgo plugin install)", minVersion: "0.29.0" };
-export const UPDATE_PIN: Feature = { name: "the Update pin quick fix", minVersion: "0.31.0" };
+// What `letsgo version --json` reports about the binary.
+export interface VersionInfo {
+  version: string;
+  capabilities: readonly string[];
+}
 
-export const DID_YOU_MEAN: Feature = { name: "the Did you mean quick fix", minVersion: "0.33.0" };
+export const PLAN_JSON: Feature = { name: "the module panel and status bar (letsgo plan --json)", capability: "plan-json" };
+export const TAG_VERIFY: Feature = { name: "the Tag and Verify commands (--json)", capability: "tag-json" };
+export const LSP: Feature = { name: "letsgo.mod language features (letsgo lsp)", capability: "lsp" };
+export const INSTALL_PLUGINS: Feature = { name: "the Install pinned plugins command (letsgo plugin install)", capability: "plugin-install" };
+export const UPDATE_PIN: Feature = { name: "the Update pin quick fix", capability: "update-pin" };
+export const DID_YOU_MEAN: Feature = { name: "the Did you mean quick fix", capability: "did-you-mean" };
 
 export const FEATURES: readonly Feature[] = [PLAN_JSON, TAG_VERIFY, INSTALL_PLUGINS, LSP, UPDATE_PIN, DID_YOU_MEAN];
 
-// `letsgo version` prints "letsgo <version>": a release like v0.30.1, or "dev"
-// for a build with no version stamped in. Only a release gives a number to
-// compare, so anything else reads as unknown.
-export function parseVersion(output: string): string | undefined {
-  const match = /^letsgo v?(\d+\.\d+\.\d+)(?:-[0-9A-Za-z.-]+)?(?:\+\S*)?\s*$/m.exec(output);
-  return match?.[1];
-}
-
-function compare(a: string, b: string): number {
-  const x = a.split(".").map(Number);
-  const y = b.split(".").map(Number);
-  for (let i = 0; i < 3; i++) {
-    if (x[i] !== y[i]) {
-      return x[i] < y[i] ? -1 : 1;
-    }
-  }
-  return 0;
-}
-
-// The features a letsgo of this version lacks. An unknown version (a dev build)
-// lacks none: guessing that a working checkout is too old would only take
-// features away from someone building letsgo themselves.
-export function unavailable(version: string | undefined): Feature[] {
-  if (version === undefined) {
+// The features a letsgo lacks, by what it says it can do rather than by a
+// version number this extension would have to keep in step. An unknown letsgo
+// (one that predates `version --json`, or failed to answer) lacks none:
+// guessing that a working binary is too old would only take features away.
+export function unavailable(info: VersionInfo | undefined): Feature[] {
+  if (info === undefined) {
     return [];
   }
-  return FEATURES.filter((f) => compare(version, f.minVersion) < 0);
+  return FEATURES.filter((f) => !info.capabilities.includes(f.capability));
 }
 
-export function isAvailable(feature: Feature, version: string | undefined): boolean {
-  return !unavailable(version).includes(feature);
+export function isAvailable(feature: Feature, info: VersionInfo | undefined): boolean {
+  return !unavailable(info).includes(feature);
 }
 
-export function outdatedMessage(version: string, missing: readonly Feature[]): string {
-  const list = missing.map((f) => `${f.name} (needs ${f.minVersion})`).join("; ");
-  return `letsgo ${version} is older than this extension expects, so these are unavailable: ${list}. Update letsgo, or set letsgo.path.`;
+export function outdatedMessage(info: VersionInfo, missing: readonly Feature[]): string {
+  const list = missing.map((f) => f.name).join("; ");
+  return `letsgo ${info.version} is older than this extension expects, so these are unavailable: ${list}. Update letsgo, or set letsgo.path.`;
 }
 
-export async function probeVersion(cli: LetsgoCli): Promise<string | undefined> {
-  const result = await cli.run(["version"], { timeout: 10_000 });
+export function parseVersion(output: string): VersionInfo | undefined {
+  try {
+    const raw: unknown = JSON.parse(output);
+    if (typeof raw !== "object" || raw === null) {
+      return undefined;
+    }
+    const { version, capabilities } = raw as { version?: unknown; capabilities?: unknown };
+    if (typeof version !== "string" || !Array.isArray(capabilities)) {
+      return undefined;
+    }
+    return { version, capabilities: capabilities.filter((c): c is string => typeof c === "string") };
+  } catch {
+    return undefined;
+  }
+}
+
+export async function probeVersion(cli: LetsgoCli): Promise<VersionInfo | undefined> {
+  const result = await cli.run(["version", "--json"], { timeout: 10_000 });
   return result.failed ? undefined : parseVersion(result.stdout);
 }

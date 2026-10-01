@@ -51,13 +51,18 @@ export function levelChoices(proposal: Proposal): LevelChoice[] {
 }
 
 export function tagArgs(level: LevelChoice["level"]): string[] {
-  return ["tag", "--yes", `--${level}`];
+  return ["tag", "--json", "--yes", `--${level}`];
 }
 
-// `letsgo tag --yes` reports "  tagged <ref>"; the ref carries the module's tag
-// prefix, which `tag --json` leaves out, so this is where the real name is.
+// `letsgo tag --json --yes` reports the ref it created, prefix included, and
+// whether it created one.
 export function parseTaggedRef(stdout: string): string | undefined {
-  return /^[ \t]*tagged (\S+)/m.exec(stdout)?.[1];
+  try {
+    const out = JSON.parse(stdout) as { ref?: unknown; tagged?: unknown };
+    return out.tagged === true && typeof out.ref === "string" ? out.ref : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function pushCommand(tag: string): string {

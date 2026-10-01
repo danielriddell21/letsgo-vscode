@@ -50,7 +50,10 @@ test("execProcess runs a real process and reports a missing one as failed", asyn
   assert.notEqual(missing.message, "");
 });
 
-test("probeVersion reads a release and treats a failure as unknown", async () => {
-  assert.equal(await probeVersion(new LetsgoCli("letsgo", fake({ stdout: "letsgo v0.35.1\n" }).runner)), "0.35.1");
-  assert.equal(await probeVersion(new LetsgoCli("letsgo", fake({ failed: true, stdout: "letsgo v0.35.1\n" }).runner)), undefined);
+test("probeVersion reads the JSON form and treats a failure as unknown", async () => {
+  const json = JSON.stringify({ schema: 1, version: "v0.41.0", capabilities: ["lsp"] });
+  const ok = fake({ stdout: json });
+  assert.deepEqual(await probeVersion(new LetsgoCli("letsgo", ok.runner)), { version: "v0.41.0", capabilities: ["lsp"] });
+  assert.equal(await probeVersion(new LetsgoCli("letsgo", fake({ failed: true, stdout: json }).runner)), undefined);
+  assert.equal(await probeVersion(new LetsgoCli("letsgo", fake({ stdout: "letsgo v0.35.1\n" }).runner)), undefined);
 });

@@ -29,12 +29,13 @@ test("a proposal with no level still offers every level", () => {
 });
 
 test("tag arguments force the chosen level and skip the prompt", () => {
-  assert.deepEqual(tagArgs("patch"), ["tag", "--yes", "--patch"]);
+  assert.deepEqual(tagArgs("patch"), ["tag", "--json", "--yes", "--patch"]);
 });
 
-test("the created ref is read from letsgo's output, prefix included", () => {
-  const out = "  next  v1.3.0\n\n  tagged services/api/v1.3.0\n  push it with: git push origin services/api/v1.3.0\n";
-  assert.equal(parseTaggedRef(out), "services/api/v1.3.0");
+test("the created ref is read from letsgo's JSON, prefix included", () => {
+  assert.equal(parseTaggedRef('{"schema":1,"ref":"services/api/v1.3.0","tagged":true}'), "services/api/v1.3.0");
+  assert.equal(parseTaggedRef('{"schema":1,"ref":"v1.3.0"}'), undefined);
   assert.equal(parseTaggedRef("nothing was tagged"), undefined);
+  assert.equal(parseTaggedRef("null"), undefined);
   assert.equal(pushCommand("v1.3.0"), "git push origin v1.3.0");
 });

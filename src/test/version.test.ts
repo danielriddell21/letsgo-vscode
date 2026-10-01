@@ -1,48 +1,49 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DID_YOU_MEAN, INSTALL_PLUGINS, LSP, PLAN_JSON, TAG_VERIFY, UPDATE_PIN, isAvailable, outdatedMessage, parseVersion, unavailable } from "../version";
+import { DID_YOU_MEAN, FEATURES, INSTALL_PLUGINS, LSP, PLAN_JSON, TAG_VERIFY, UPDATE_PIN, isAvailable, outdatedMessage, parseVersion, unavailable, type VersionInfo } from "../version";
 
-test("parseVersion reads a release and ignores a dev build", () => {
-  assert.equal(parseVersion("letsgo v0.30.1\n"), "0.30.1");
-  assert.equal(parseVersion("letsgo 0.30.0-rc.2\n"), "0.30.0");
-  assert.equal(parseVersion("letsgo dev\n"), undefined);
+const all = FEATURES.map((f) => f.capability);
+const info = (...capabilities: string[]): VersionInfo => ({ version: "0.41.0", capabilities });
+
+test("parseVersion reads the version and capabilities", () => {
+  const out = JSON.stringify({ schema: 1, version: "v0.41.0", capabilities: ["lsp", "plan-json"] });
+  assert.deepEqual(parseVersion(out), { version: "v0.41.0", capabilities: ["lsp", "plan-json"] });
+});
+
+test("parseVersion treats anything but the JSON form as unknown", () => {
+  assert.equal(parseVersion("letsgo v0.30.1\n"), undefined);
   assert.equal(parseVersion(""), undefined);
+  assert.equal(parseVersion("null"), undefined);
+  assert.equal(parseVersion('{"version":"dev"}'), undefined);
+  assert.equal(parseVersion('{"capabilities":[]}'), undefined);
 });
 
-test("an old letsgo lacks the features added after it", () => {
-  assert.deepEqual(unavailable("0.28.0"), [PLAN_JSON, TAG_VERIFY, INSTALL_PLUGINS, LSP, UPDATE_PIN, DID_YOU_MEAN]);
-  assert.deepEqual(unavailable("0.29.0"), [LSP, UPDATE_PIN, DID_YOU_MEAN]);
-  assert.deepEqual(unavailable("0.30.1"), [UPDATE_PIN, DID_YOU_MEAN]);
-  assert.deepEqual(unavailable("0.31.0"), [DID_YOU_MEAN]);
-  assert.deepEqual(unavailable("0.33.0"), []);
-  assert.deepEqual(unavailable("1.0.0"), []);
+test("parseVersion drops capabilities that are not strings", () => {
+  assert.deepEqual(parseVersion('{"version":"dev","capabilities":["lsp",3]}')?.capabilities, ["lsp"]);
 });
 
-test("an unknown version is assumed to have everything", () => {
+test("a feature is unavailable when letsgo does not advertise it", () => {
+  assert.deepEqual(unavailable(info()), [...FEATURES]);
+  assert.deepEqual(unavailable(info("plan-json", "tag-json", "plugin-install")), [LSP, UPDATE_PIN, DID_YOU_MEAN]);
+  assert.deepEqual(unavailable(info(...all, "something-newer")), []);
+});
+
+test("an unknown letsgo lacks nothing", () => {
   assert.deepEqual(unavailable(undefined), []);
   assert.ok(isAvailable(LSP, undefined));
 });
 
-test("versions compare numerically, not as text", () => {
-  assert.ok(isAvailable(LSP, "0.100.0"));
-  assert.ok(!isAvailable(LSP, "0.9.0"));
+test("isAvailable follows the advertised capabilities", () => {
+  assert.ok(isAvailable(INSTALL_PLUGINS, info("plugin-install")));
+  assert.ok(!isAvailable(INSTALL_PLUGINS, info("lsp")));
+  assert.ok(!isAvailable(DID_YOU_MEAN, info("lsp")));
+  assert.ok(isAvailable(TAG_VERIFY, info("tag-json")));
 });
 
 test("the message names the version and each missing feature", () => {
-  const message = outdatedMessage("0.28.0", unavailable("0.28.0"));
-  assert.match(message, /0\.28\.0/);
+  const i = info("update-pin");
+  const message = outdatedMessage(i, unavailable(i));
+  assert.match(message, /0\.41\.0/);
   assert.match(message, /letsgo lsp/);
-  assert.match(message, /plan --json/);
-});
-
-test("Install pinned plugins needs 0.29.0", () => {
-  assert.ok(!isAvailable(INSTALL_PLUGINS, "0.28.0"));
-  assert.ok(isAvailable(INSTALL_PLUGINS, "0.29.0"));
-  assert.ok(isAvailable(INSTALL_PLUGINS, undefined));
-});
-
-test("Did you mean needs 0.33.0", () => {
-  assert.ok(!isAvailable(DID_YOU_MEAN, "0.32.0"));
-  assert.ok(isAvailable(DID_YOU_MEAN, "0.33.0"));
-  assert.ok(isAvailable(DID_YOU_MEAN, undefined));
+  assert.match(message, new RegExp(PLAN_JSON.name.slice(0, 20)));
 });
