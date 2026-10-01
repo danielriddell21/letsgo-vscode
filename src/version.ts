@@ -1,4 +1,4 @@
-import * as cp from "node:child_process";
+import type { LetsgoCli } from "./cli";
 
 // A letsgo feature this extension leans on, and the first release that has it.
 export interface Feature {
@@ -54,10 +54,7 @@ export function outdatedMessage(version: string, missing: readonly Feature[]): s
   return `letsgo ${version} is older than this extension expects, so these are unavailable: ${list}. Update letsgo, or set letsgo.path.`;
 }
 
-export function probeVersion(binary: string): Promise<string | undefined> {
-  return new Promise((resolve) => {
-    cp.execFile(binary, ["version"], { timeout: 10_000 }, (err, stdout) => {
-      resolve(err ? undefined : parseVersion(stdout));
-    });
-  });
+export async function probeVersion(cli: LetsgoCli): Promise<string | undefined> {
+  const result = await cli.run(["version"], { timeout: 10_000 });
+  return result.failed ? undefined : parseVersion(result.stdout);
 }

@@ -1,5 +1,4 @@
 import * as vscode from "vscode";
-import * as cp from "node:child_process";
 import {
   BUILD_SNAPSHOT_ARGS,
   INSTALL_PLUGINS_ARGS,
@@ -8,6 +7,7 @@ import {
   UPDATE_CHECK_ARGS,
   diffArgs,
 } from "./commands";
+import { LetsgoCli } from "./cli";
 import { runInPanel } from "./run";
 import { isPlanAllowed } from "./trust";
 import { INSTALL_PLUGINS, type Feature } from "./version";
@@ -20,12 +20,9 @@ export interface PaletteDeps {
   output: vscode.OutputChannel;
 }
 
-function capture(binary: string, args: readonly string[], cwd: string): Promise<{ text: string; failed: boolean }> {
-  return new Promise((resolve) => {
-    cp.execFile(binary, [...args], { cwd, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
-      resolve({ text: (stdout || stderr || err?.message || "").trim(), failed: err !== null });
-    });
-  });
+async function capture(binary: string, args: readonly string[], cwd: string): Promise<{ text: string; failed: boolean }> {
+  const result = await new LetsgoCli(binary).run(args, { cwd });
+  return { text: (result.stdout || result.stderr || result.message).trim(), failed: result.failed };
 }
 
 // Everything but Update runs letsgo in a module, and letsgo runs what the

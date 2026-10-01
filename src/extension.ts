@@ -1,5 +1,4 @@
 import * as vscode from "vscode";
-import * as cp from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { resolveBinary } from "./binary";
@@ -14,6 +13,7 @@ import {
 import { planArgs, planProblems } from "./commands";
 import { debounce } from "./debounce";
 import { resolvePos } from "./position";
+import { LetsgoCli, execProcess } from "./cli";
 import { findGit, parseTags } from "./releases";
 import { watchedGlobs } from "./watch";
 import { registerPaletteCommands } from "./paletteCommands";
@@ -41,20 +41,12 @@ function hasLetsgoMod(dir: string): boolean {
 
 const planTimeoutMs = 60_000;
 
-function runPlanJSON(binary: string, cwd: string, analyse: boolean): Promise<PlanResult> {
-  return new Promise((resolve, reject) => {
-    cp.execFile(binary, planArgs(analyse), { cwd, maxBuffer: 10 * 1024 * 1024, timeout: planTimeoutMs }, (err, stdout, stderr) => {
-      if (stdout) {
-        try {
-          resolve(parsePlan(stdout));
-        } catch (parseErr) {
-          reject(parseErr);
-        }
-        return;
-      }
-      reject(err ?? new Error(stderr || "letsgo plan produced no output"));
-    });
-  });
+async function runPlanJSON(binary: string, cwd: string, analyse: boolean): Promise<PlanResult> {
+  const result = await new LetsgoCli(binary).run(planArgs(analyse), { cwd, timeout: planTimeoutMs });
+  if (result.stdout) {
+    return parsePlan(result.stdout);
+  }
+  throw new Error(result.stderr || result.message || "letsgo plan produced no output");
 }
 
 class LetsgoTreeProvider implements vscode.TreeDataProvider<TreeNode> {
@@ -135,7 +127,7 @@ async function refresh(
     return;
   }
 
-  const version = await probeVersion(binary);
+  const version = await probeVersion(new LetsgoCli(binary));
   if (version !== undefined && !isAvailable(PLAN_JSON, version)) {
     const message = outdatedMessage(version, unavailable(version));
     provider.refresh(modules.map((m) => errorNode(m.label, message)));
@@ -220,22 +212,14 @@ async function planModules(
 
 // pickRelease offers the module's tags newest first, falling back to typing
 // one when git can't list them.
-function pickRelease(cwd: string): Promise<string | undefined> {
-  return new Promise((resolve) => {
-    const git = findGit(fileExists);
-    if (!git) {
-      void Promise.resolve(vscode.window.showInputBox({ prompt: "Tag to verify, e.g. v1.2.0" })).then(resolve);
-      return;
-    }
-    cp.execFile(git, ["tag", "--list", "--sort=-v:refname"], { cwd, timeout: 10_000 }, (err, stdout) => {
-      const tags = err ? [] : parseTags(stdout, 30);
-      if (tags.length === 0) {
-        void Promise.resolve(vscode.window.showInputBox({ prompt: "Tag to verify, e.g. v1.2.0" })).then(resolve);
-        return;
-      }
-      void Promise.resolve(vscode.window.showQuickPick(tags, { placeHolder: "Release to verify" })).then(resolve);
-    });
-  });
+async function pickRelease(cwd: string): Promise<string | undefined> {
+  const git = findGit(fileExists);
+  const listed = git ? await execProcess(git, ["tag", "--list", "--sort=-v:refname"], { cwd, timeout: 10_000 }) : undefined;
+  const tags = listed && !listed.failed ? parseTags(listed.stdout, 30) : [];
+  if (tags.length === 0) {
+    return vscode.window.showInputBox({ prompt: "Tag to verify, e.g. v1.2.0" });
+  }
+  return vscode.window.showQuickPick(tags, { placeHolder: "Release to verify" });
 }
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -265,7 +249,7 @@ export function activate(context: vscode.ExtensionContext): void {
       void vscode.window.showWarningMessage("letsgo was not found; install it or set letsgo.path.");
       return undefined;
     }
-    const version = await probeVersion(binary);
+    const version = await probeVersion(new LetsgoCli(binary));
     if (version !== undefined && !isAvailable(feature, version)) {
       void vscode.window.showWarningMessage(outdatedMessage(version, unavailable(version)));
       return undefined;

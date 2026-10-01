@@ -7,6 +7,7 @@ import {
   serverCommand,
   startFailureMessage,
 } from "./lsp";
+import { LetsgoCli } from "./cli";
 import { LSP, isAvailable, outdatedMessage, probeVersion, unavailable } from "./version";
 
 // Owns the one language client. A trust change or a letsgo.path change needs a
@@ -30,7 +31,7 @@ export class LetsgoLanguageClient implements vscode.Disposable {
       return;
     }
 
-    const version = await probeVersion(binary);
+    const version = await probeVersion(new LetsgoCli(binary));
     if (!isAvailable(LSP, version) && version !== undefined) {
       this.output.appendLine(`letsgo ${version} predates letsgo lsp; language features are off`);
       void vscode.window.showWarningMessage(outdatedMessage(version, unavailable(version)));
