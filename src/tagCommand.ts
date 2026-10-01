@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { LetsgoCli } from "./cli";
+import { systemGit } from "./releases";
 import { isSafeTag } from "./manifest";
 import { runInPanel } from "./run";
 import { levelChoices, parseProposal, parseTaggedRef, pushCommand, tagArgs } from "./tag";
@@ -44,7 +45,12 @@ export async function tagNextVersion(binary: string, dir: string, output: vscode
   const push = "Push tag";
   const answer = await vscode.window.showInformationMessage(`Tagged ${created}. Pushing it starts the release in CI.`, push);
   if (answer === push) {
+    const git = systemGit();
+    if (!git) {
+      void vscode.window.showErrorMessage(`No git in a system location; push the tag yourself: ${pushCommand(created)}`);
+      return;
+    }
     output.appendLine(pushCommand(created));
-    await runInPanel(`push ${created}`, "git", ["push", "origin", created], dir);
+    await runInPanel(`push ${created}`, git, ["push", "origin", created], dir);
   }
 }

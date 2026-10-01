@@ -1,3 +1,4 @@
+import * as fs from "node:fs";
 import * as path from "node:path";
 
 // Fixed, system-owned install locations for git. PATH is deliberately not
@@ -17,6 +18,20 @@ export function findGit(
   const exe = win ? "git.exe" : "git";
   const join = win ? path.win32.join : path.posix.join;
   return gitDirs[win ? "win32" : "posix"].map((dir) => join(dir, exe)).find(exists);
+}
+
+function isExecutable(candidate: string): boolean {
+  try {
+    fs.accessSync(candidate, fs.constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// systemGit is findGit against the real file system.
+export function systemGit(): string | undefined {
+  return findGit(isExecutable);
 }
 
 // parseTags reads `git tag --list` output, newest first, capped at limit.
