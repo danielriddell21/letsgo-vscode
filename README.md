@@ -69,7 +69,9 @@ in the terminal panel unless noted, and none runs in an untrusted workspace):
 | Update letsgo | `letsgo update`, after showing what is available and asking |
 
 Checks that point at a line of `letsgo.mod` (a budget naming a target that
-isn't built, say) also show as squiggles there and in Problems.
+isn't built, say) show as squiggles there and in Problems. They come from
+`letsgo lsp`, which is where a plan's problems are reported, so each appears
+once; the panel and status bar read `letsgo plan --json` for the rest.
 
 **Tasks**: a `letsgo` task type for `tasks.json`, with a `$letsgo` problem
 matcher for `letsgo.mod:L:C: message` lines. It runs `plan`, `build`, `verify`,
