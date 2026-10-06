@@ -1,4 +1,3 @@
-import type { Check, PlanResult } from "./plan";
 import { isSafeTag } from "./manifest";
 
 // The arguments each palette command hands to letsgo. Every one is a fixed
@@ -51,44 +50,4 @@ export function taskArgs(command: string, args: readonly string[] = []): string[
     return undefined;
   }
   return [command, ...args];
-}
-
-export interface Problem {
-  file: string;
-  line: number;
-  col: number;
-  message: string;
-  severity: "error" | "warning";
-}
-
-function isAbsolute(file: string): boolean {
-  return file.startsWith("/") || /^[A-Za-z]:[\\/]/.test(file);
-}
-
-// Checks that point at a line of config become diagnostics there, so "the
-// budget is wrong" is a squiggle under the budget. A file letsgo reports
-// relative to the module is resolved against the module's directory.
-export function planProblems(plan: PlanResult, moduleDir: string): Problem[] {
-  const out: Problem[] = [];
-  for (const check of plan.checks) {
-    const problem = problemFor(check, moduleDir);
-    if (problem) {
-      out.push(problem);
-    }
-  }
-  return out;
-}
-
-function problemFor(check: Check, moduleDir: string): Problem | undefined {
-  if (!check.pos || (check.status !== "fail" && check.status !== "warn")) {
-    return undefined;
-  }
-  const file = isAbsolute(check.pos.file) ? check.pos.file : `${moduleDir.replace(/[\\/]$/, "")}/${check.pos.file}`;
-  return {
-    file,
-    line: Math.max(check.pos.line, 1),
-    col: Math.max(check.pos.col, 1),
-    message: check.detail ? `${check.name}: ${check.detail}` : check.name,
-    severity: check.status === "fail" ? "error" : "warning",
-  };
 }

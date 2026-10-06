@@ -54,26 +54,20 @@ suite("letsgo extension host (trusted workspace)", () => {
     assert.strictEqual(fs.realpathSync(first.cwd), fs.realpathSync(workspaceDir()));
   });
 
-  test("refreshes when letsgo.mod changes", async () => {
+  test("refreshes when letsgo.mod changes, without publishing the plan's problems itself", async () => {
     const uri = fixtureUri("letsgo.mod");
-    assert.strictEqual(vscode.languages.getDiagnostics(uri).filter((d) => d.source === "letsgo plan").length, 0);
     const before = calls("plan").length;
 
+    // A failing check with a position. The language server is where a plan's
+    // problems become diagnostics, so the extension must not publish the same
+    // one again from `letsgo plan --json`: each problem is reported once.
     fs.writeFileSync(uri.fsPath, "project fixture\nbad-budget 1MB\n");
 
     await waitFor("another letsgo plan after the change", () => calls("plan").length > before);
-    const problem = await waitFor("the failing check as a problem", () =>
-      vscode.languages.getDiagnostics(uri).find((d) => d.source === "letsgo plan"),
-    );
-    assert.strictEqual(problem.severity, vscode.DiagnosticSeverity.Error);
-    assert.strictEqual(problem.range.start.line, 1);
-    assert.match(problem.message, /budget/);
+    assert.strictEqual(vscode.languages.getDiagnostics(uri).filter((d) => d.source === "letsgo plan").length, 0);
 
-    // Fixing the file clears it again: the panel follows the file, not the first plan.
     fs.writeFileSync(uri.fsPath, "project fixture\n");
-    await waitFor("the problem to clear", () =>
-      vscode.languages.getDiagnostics(uri).filter((d) => d.source === "letsgo plan").length === 0,
-    );
+    await waitFor("a plan after the fix", () => calls("plan").length > before + 1);
   });
 
   test("Plan with analysis passes --analyse to letsgo", async () => {
