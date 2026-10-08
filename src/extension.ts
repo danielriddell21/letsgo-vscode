@@ -229,7 +229,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   context.subscriptions.push(statusBarItem);
 
-  const outputChannel = vscode.window.createOutputChannel("letsgo");
+  const outputChannel = vscode.window.createOutputChannel("letsgo", { log: true });
   context.subscriptions.push(outputChannel);
 
   const problems = vscode.languages.createDiagnosticCollection("letsgo plan");
