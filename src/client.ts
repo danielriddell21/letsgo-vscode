@@ -19,7 +19,7 @@ export class LetsgoLanguageClient implements vscode.Disposable {
 
   constructor(
     private readonly resolve: () => string | undefined,
-    private readonly output: vscode.OutputChannel,
+    private readonly output: vscode.LogOutputChannel,
   ) {}
 
   async restart(): Promise<void> {

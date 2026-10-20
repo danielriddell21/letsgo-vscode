@@ -168,7 +168,7 @@ async function pickRelease(cwd: string): Promise<string | undefined> {
 interface Surfaces {
   provider: LetsgoTreeProvider;
   statusBarItem: vscode.StatusBarItem;
-  outputChannel: vscode.OutputChannel;
+  outputChannel: vscode.LogOutputChannel;
 }
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -196,7 +196,7 @@ export function activate(context: vscode.ExtensionContext): void {
 function createSurfaces(context: vscode.ExtensionContext): Surfaces {
   const provider = new LetsgoTreeProvider();
   const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-  const outputChannel = vscode.window.createOutputChannel("letsgo");
+  const outputChannel = vscode.window.createOutputChannel("letsgo", { log: true });
   context.subscriptions.push(
     vscode.window.createTreeView("letsgoModules", { treeDataProvider: provider }),
     statusBarItem,
