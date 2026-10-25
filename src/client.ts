@@ -8,7 +8,7 @@ import {
   startFailureMessage,
 } from "./lsp";
 import { LetsgoCli } from "./cli";
-import { LSP, isAvailable, outdatedMessage, probeVersion, unavailable } from "./version";
+import { LSP, PLAN_DIAGNOSTICS, isAvailable, outdatedMessage, probeVersion, unavailable } from "./version";
 
 // Owns the one language client. A trust change or a letsgo.path change needs a
 // different process (restricted or not, another binary), so the only
@@ -16,6 +16,7 @@ import { LSP, isAvailable, outdatedMessage, probeVersion, unavailable } from "./
 export class LetsgoLanguageClient implements vscode.Disposable {
   private client: LanguageClient | undefined;
   private notifiedMissing = false;
+  private notifiedNoPlanProblems = false;
 
   constructor(
     private readonly resolve: () => string | undefined,
@@ -36,6 +37,14 @@ export class LetsgoLanguageClient implements vscode.Disposable {
       this.output.appendLine(`letsgo ${version} predates letsgo lsp; language features are off`);
       void vscode.window.showWarningMessage(outdatedMessage(version, unavailable(version)));
       return;
+    }
+    // The server still runs, but its problems are the only plan problems this
+    // extension shows, so a letsgo without them would leave the editor quietly
+    // clean. Said once per session, like a missing binary.
+    if (!isAvailable(PLAN_DIAGNOSTICS, version) && version !== undefined && !this.notifiedNoPlanProblems) {
+      this.notifiedNoPlanProblems = true;
+      this.output.appendLine(`letsgo ${version.version} predates plan diagnostics; plan problems will not show`);
+      void vscode.window.showWarningMessage(outdatedMessage(version, unavailable(version)));
     }
 
     const { command, args } = serverCommand(binary, vscode.workspace.isTrusted);
