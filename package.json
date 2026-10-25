@@ -214,7 +214,7 @@
     "@typescript-eslint/parser": "^8.72.0",
     "@vscode/test-electron": "^3.1.0",
     "eslint": "^10.13.0",
-    "mocha": "^12.0.2",
+    "mocha": "^12.0.3",
     "typescript": "^5.7.0"
   },
   "dependencies": {
