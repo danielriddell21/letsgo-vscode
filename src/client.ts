@@ -34,7 +34,7 @@ export class LetsgoLanguageClient implements vscode.Disposable {
 
     const version = await probeVersion(new LetsgoCli(binary));
     if (!isAvailable(LSP, version) && version !== undefined) {
-      this.output.appendLine(`letsgo ${version} predates letsgo lsp; language features are off`);
+      this.output.appendLine(`letsgo ${version.version} predates letsgo lsp; language features are off`);
       void vscode.window.showWarningMessage(outdatedMessage(version, unavailable(version)));
       return;
     }
