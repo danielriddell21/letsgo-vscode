@@ -6,6 +6,15 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      # vsce refuses to package when @types/vscode is newer than
+      # engines.vscode, so it moves only when the engine floor does.
+      - dependency-name: "@types/vscode"
+        versions: [">=1.92.0"]
+      # typescript-eslint's peer range stops at <6.1.0, so a newer
+      # TypeScript cannot be installed alongside it yet.
+      - dependency-name: "typescript"
+        versions: [">=6.1.0"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
